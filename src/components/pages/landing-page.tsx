@@ -1,6 +1,8 @@
 import * as stylex from '@stylexjs/stylex';
 import { BookOpen, CircleHelp, Play, Plus, Settings } from 'lucide-react';
+import { MIN_SCREEN_HEIGHT, MIN_SCREEN_WIDTH, useScreenFit } from '../../hooks/use-screen-fit';
 import { Button } from '../controls/button';
+import { Callout } from '../controls/callout';
 import type { Game } from '../../models/game';
 import { GameLogic } from '../../logic/game-logic';
 import { PhaseLogic } from '../../logic/phase-logic';
@@ -140,6 +142,7 @@ const styles = stylex.create({
 export const LandingPage = (props: Props) => {
 	const game = props.game;
 	const [ showSettings, setShowSettings ] = useState(false);
+	const screenFit = useScreenFit();
 
 	return (
 		<div {...stylex.props(styles.landingPage)}>
@@ -148,6 +151,14 @@ export const LandingPage = (props: Props) => {
 					<img src={clockRing} alt='' {...stylex.props(styles.logo)} />
 					<span {...stylex.props(styles.title)}>Clockmaker</span>
 				</div>
+				{
+					screenFit === 'portrait' ?
+						<Callout type='warning'>Clockmaker is laid out for an screen held sideways. Turn it to landscape before you start.</Callout>
+						:
+						screenFit === 'small' ?
+							<Callout type='warning'>This screen is smaller than Clockmaker is designed for ({MIN_SCREEN_WIDTH} × {MIN_SCREEN_HEIGHT} or larger), so some parts of a game may be cramped or cut off.</Callout>
+							: null
+				}
 				<div {...stylex.props(styles.actions)}>
 					{game === null ? <Button type='primary' icon={Plus} label='New Game' onClick={() => props.onSetPage('setup')} /> : null}
 					<Button icon={BookOpen} label='Browse Scripts' onClick={() => props.onSetPage('browse')} />

@@ -5,7 +5,6 @@ import type { ShowPlayer } from './show-player';
 
 interface _Effect {
 	id: string;
-	// TODO: Duration
 }
 
 export interface EffectBelievesTheyAre extends _Effect {
