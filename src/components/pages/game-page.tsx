@@ -1,5 +1,5 @@
 import * as stylex from '@stylexjs/stylex';
-import { ChevronLeft, Eye, EyeOff, X } from 'lucide-react';
+import { ChevronLeft, EyeOff, X } from 'lucide-react';
 import { sendNightCommand, useShortcuts } from '../../hooks/use-shortcuts';
 import { useEffect, useRef, useState } from 'react';
 import { Alarm } from '../../logic/alarm';
@@ -11,8 +11,6 @@ import { GameLogic } from '../../logic/game-logic';
 import { GrimoirePanel } from '../panels/grimoire-panel';
 import type { GrimoireView } from '../../logic/grimoire-view-logic';
 import { HistoryLogic } from '../../logic/history-logic';
-import { HistoryStrip } from '../panels/game/history-strip';
-import { HoldButton } from '../controls/hold-button';
 import { LookBackPanel } from '../panels/game/look-back-panel';
 import type { NightDrafts } from '../panels/game/night-tab';
 import { PhaseLogic } from '../../logic/phase-logic';
@@ -67,7 +65,9 @@ const styles = stylex.create({
 	side: {
 		flex: '1 1 0',
 		minWidth: 0,
-		position: 'relative'
+		position: 'relative',
+		// Keeps the raised curtain out of sight above the panel
+		overflow: 'hidden'
 	},
 	// The seat inspector lies over the phase panel; closing it shows the panel again
 	inspector: {
@@ -102,7 +102,8 @@ const styles = stylex.create({
 		overflowY: 'auto',
 		padding: '12px'
 	},
-	// Privacy lowers an opaque curtain over the side panel; a blur would still leak colours and shapes
+	// Privacy lowers an opaque curtain over the side panel; a blur would still leak colours and shapes.
+	// It waits just above the panel and rolls down like a shutter, so hiding the grimoire is something you see happen
 	curtain: {
 		position: 'absolute',
 		inset: 0,
@@ -112,9 +113,19 @@ const styles = stylex.create({
 		alignItems: 'center',
 		justifyContent: 'center',
 		gap: '16px',
-		borderRadius: '14px',
 		backgroundColor: palette.backgroundDark,
-		color: palette.textDimmed
+		color: palette.textDimmed,
+		transform: 'translateY(-100%)',
+		transition: {
+			'default': 'transform 1000ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+			'@media (prefers-reduced-motion: reduce)': 'none'
+		}
+	},
+	curtainDown: {
+		transform: 'translateY(0)',
+		// Only while it's down: on the way the shadow falls on the panel below its edge, and once home it's off the panel.
+		// Waiting above, it would cast over the top of the panel, which is why it isn't on the curtain itself
+		boxShadow: '0 10px 24px rgb(0 0 0 / 0.25)'
 	},
 	sideContent: {
 		position: 'relative',
@@ -204,12 +215,7 @@ export const GamePage = (props: Props) => {
 	// The past phase being looked back at, if any
 	const [ lookBackKey, setLookBackKey ] = useState<string | null>(null);
 	useEffect(() => setLookBackKey(null), [ phaseKey ]);
-	// Whether the look-back strip is out; it stays out of the way until it's wanted
-	const [ lookBackOpen, setLookBackOpen ] = useState(false);
-	const closeLookBack = () => {
-		setLookBackOpen(false);
-		setLookBackKey(null);
-	};
+	const closeLookBack = () => setLookBackKey(null);
 
 	// When the day timer runs out, sound the alarm and reset it, ready to start again
 	useDayTimerExpiry(timer, () => {
@@ -264,16 +270,11 @@ export const GamePage = (props: Props) => {
 	const selectedPlayer = GameLogic.findPlayer(game, selectedPlayerID);
 	const snapshots = HistoryLogic.getSnapshots(game);
 	const lookBack = snapshots.find(s => HistoryLogic.getPhaseKey(s.phase) === lookBackKey) ?? null;
-	const historyStrip = (lookBackOpen && (snapshots.length > 0)) ?
-		<HistoryStrip
-			phases={snapshots.map(s => ({ key: HistoryLogic.getPhaseKey(s.phase), label: PhaseLogic.getLabel(s.phase) }))}
-			selectedKey={lookBack ? lookBackKey : null}
-			onSelect={key => {
-				setLookBackKey(key);
-				setSelectedPlayerID(null);
-			}}
-		/>
-		: null;
+	const lookBackPhases = snapshots.map(s => ({ key: HistoryLogic.getPhaseKey(s.phase), label: PhaseLogic.getLabel(s.phase), type: s.phase.type }));
+	const onLookBackChange = (key: string | null) => {
+		setLookBackKey(key);
+		setSelectedPlayerID(null);
+	};
 
 	return (
 		<div {...stylex.props(styles.gamePage)}>
@@ -286,14 +287,6 @@ export const GamePage = (props: Props) => {
 					setSelectedPlayerID(null);
 				}}
 				onTimerChange={setTimer}
-				lookBackOpen={snapshots.length > 0 ? lookBackOpen : null}
-				onToggleLookBack={() => {
-					if (lookBackOpen) {
-						closeLookBack();
-					} else {
-						setLookBackOpen(true);
-					}
-				}}
 				onChange={props.onChange}
 				onHome={props.onCancel}
 				onEndGame={props.onEndGame}
@@ -317,7 +310,9 @@ export const GamePage = (props: Props) => {
 								timer={timer}
 								view={view}
 								onViewChange={setView}
-								header={historyStrip}
+								lookBackPhases={lookBackPhases}
+								lookBackKey={lookBackKey}
+								onLookBackChange={onLookBackChange}
 								tint={getTint(lookBack.phase.type)}
 							/>
 							:
@@ -342,7 +337,9 @@ export const GamePage = (props: Props) => {
 								view={view}
 								onViewChange={setView}
 								inkable={true}
-								header={historyStrip}
+								lookBackPhases={lookBackPhases}
+								lookBackKey={lookBackKey}
+								onLookBackChange={onLookBackChange}
 								tint={getTint(game.phase.type)}
 								onSeatLongPress={(player, x, y) => setSeatMenu({ playerID: player.id, x, y })}
 								tapRequest={tapRequest}
@@ -351,15 +348,10 @@ export const GamePage = (props: Props) => {
 					}
 				</div>
 				<div {...stylex.props(styles.side)}>
-					{
-						privacy ?
-							<div {...stylex.props(styles.curtain)}>
-								<EyeOff size={40} aria-hidden='true' />
-								<Text type='h3'>The grimoire is hidden</Text>
-								<HoldButton icon={Eye} label='Hold to show' onHold={() => setPrivacy(false)} />
-							</div>
-							: null
-					}
+					<div {...stylex.props(styles.curtain, privacy && styles.curtainDown)} inert={!privacy} aria-hidden={!privacy}>
+						<EyeOff size={40} aria-hidden='true' />
+						<Text type='h3'>The grimoire is hidden</Text>
+					</div>
 					<div {...stylex.props(styles.sideContent)} inert={privacy} aria-hidden={privacy}>
 						{/* Looking back lies over the phase panel, which keeps its place underneath */}
 						{

@@ -1,6 +1,6 @@
 import * as stylex from '@stylexjs/stylex';
 import { AddTravellerPanel, BluffsPanel, FabledLoricPanel } from './other-characters';
-import { BookOpen, ChevronLeft, CircleHelp, ClipboardList, Ellipsis, Eye, EyeOff, History, Keyboard, Moon, NotebookPen, ScrollText, Settings, Share, Sparkles, Sun, UserPlus, VenetianMask } from 'lucide-react';
+import { BookOpen, ChevronLeft, CircleHelp, ClipboardList, Ellipsis, Eye, EyeOff, Keyboard, Moon, NotebookPen, ScrollText, Settings, Share, Sparkles, Sun, UserPlus, VenetianMask } from 'lucide-react';
 import { useCallback, useEffect, useEffectEvent, useState } from 'react';
 import { Button } from '../../controls/button';
 import { ConfirmButton } from '../../controls/confirm-button';
@@ -28,9 +28,6 @@ interface Props {
 	privacy: boolean;
 	timer: DayTimer;
 	onTogglePrivacy: () => void;
-	// The look-back strip, shown over the circle while this is on; null when there's nothing to look back at
-	lookBackOpen: boolean | null;
-	onToggleLookBack: () => void;
 	onTimerChange: (timer: DayTimer) => void;
 	onChange: (game: Game) => void;
 	onHome: () => void;
@@ -159,11 +156,6 @@ export const TopBar = (props: Props) => {
 				<Button type='quiet' icon={BookOpen} label='Script' disabled={props.privacy} onClick={() => openSheet('script')} />
 				<Button type='quiet' icon={ScrollText} label='Log' disabled={props.privacy} onClick={() => openSheet('log')} />
 				<Button type='quiet' icon={NotebookPen} label='Notes' disabled={props.privacy} onClick={() => openSheet('notes')} />
-				{
-					props.lookBackOpen !== null ?
-						<Button type={props.lookBackOpen ? 'primary' : 'quiet'} icon={History} label='Look back' disabled={props.privacy} onClick={props.onToggleLookBack} />
-						: null
-				}
 				{
 					props.privacy ?
 						<HoldButton icon={Eye} label='Hold to show' onHold={props.onTogglePrivacy} />

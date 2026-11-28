@@ -1,7 +1,7 @@
 import * as stylex from '@stylexjs/stylex';
-import { Eraser, PenLine, RotateCcw, RotateCw } from 'lucide-react';
-import { type ReactNode, useEffect, useEffectEvent, useState } from 'react';
+import { ClipboardList, Eraser, Glasses, HeartPulse, History, Moon, PenLine, RotateCcw, RotateCw, Shapes, Skull, Sun, Users, Vote } from 'lucide-react';
 import { type Seat, type SeatReminder, SeatRing } from './seat-ring';
+import { useCallback, useEffect, useEffectEvent, useState } from 'react';
 import { Button } from '../controls/button';
 import type { Character } from '../../models/character';
 import { CharacterLogic } from '../../logic/character-logic';
@@ -16,11 +16,12 @@ import { GrimoireCentre } from './grimoire-centre';
 import type { GrimoireView } from '../../logic/grimoire-view-logic';
 import { GrimoireViewLogic } from '../../logic/grimoire-view-logic';
 import { HistoryLogic } from '../../logic/history-logic';
+import { PhaseType } from '../../enums/phase-type';
 import type { Player } from '../../models/player';
 import { PlayerState } from '../../enums/player-state';
+import { Popover } from '../controls/popover';
 import { RoleType } from '../../enums/role-type';
 import type { SeatPick } from '../../models/seat-pick';
-import { Segmented } from '../controls/segmented';
 import { SetupLogic } from '../../logic/setup-logic';
 import type { SetupSelection } from '../../models/setup-selection';
 import clockRing from '../../assets/clock-ring.svg';
@@ -54,8 +55,6 @@ interface Props {
 	tint?: 'night' | 'day' | null;
 	// Holding a seat for a moment opens its quick actions
 	onSeatLongPress?: (player: Player, x: number, y: number) => void;
-	// Shown above the circle, eg the look-back strip
-	header?: ReactNode;
 	// While a player's night choice is being made, seat taps pick players for it
 	seatPick?: SeatPick | null;
 	// The view selector is only shown when these are provided
@@ -63,6 +62,18 @@ interface Props {
 	onViewChange?: (view: GrimoireView) => void;
 	// Tapping the bluffs or Fabled / Loric corner opens its sheet; the corners can't be tapped without this
 	onCornerClick?: (corner: 'bluffs' | 'fabled') => void;
+	// The past phases the look-back button offers, oldest first; it's only shown when there are some
+	lookBackPhases?: LookBackPhase[];
+	// The phase being looked back at; null for now
+	lookBackKey?: string | null;
+	onLookBackChange?: (key: string | null) => void;
+}
+
+// A phase the grimoire can be shown as it stood at
+export interface LookBackPhase {
+	key: string;
+	label: string;
+	type: PhaseType;
 }
 
 const rotateClockRing = stylex.keyframes({
@@ -76,8 +87,6 @@ const styles = stylex.create({
 		isolation: 'isolate',
 		height: '100%',
 		width: '100%',
-		display: 'flex',
-		flexDirection: 'column',
 		borderRadius: '24px',
 		backgroundColor: palette.background,
 		color: palette.text
@@ -104,15 +113,18 @@ const styles = stylex.create({
 	skyShown: {
 		opacity: 1
 	},
+	// The circle has the whole panel, bar a thin margin; the corners and the controls float over the space it leaves.
+	// The padding comes off the container's content box, so the circle below sizes itself to what's left
 	circleArea: {
-		flex: '1 1 0',
-		minHeight: 0,
+		position: 'absolute',
+		inset: 0,
 		overflow: 'hidden',
 		display: 'grid',
 		placeItems: 'center',
+		padding: '10px',
 		containerType: 'size'
 	},
-	// As large as fits in the space left by the lens
+	// As large as the panel allows
 	playerCircle: {
 		position: 'relative',
 		width: 'min(100cqw, 100cqh)',
@@ -134,29 +146,57 @@ const styles = stylex.create({
 		animationTimingFunction: 'linear',
 		animationIterationCount: 'infinite'
 	},
-	lens: {
+	// The bottom row, mirroring the top: the lens and look-back buttons at the left, the circle's own controls at the right
+	bottom: {
+		position: 'absolute',
+		// Over the seat ring's own layers (its svg, seat labels and ink), but under a dragged reminder's ghost
+		zIndex: 5,
+		right: 0,
+		bottom: 0,
+		left: 0,
 		display: 'flex',
-		justifyContent: 'center',
+		justifyContent: 'space-between',
+		alignItems: 'flex-end',
+		gap: '8px',
+		padding: '12px',
+		// Only the controls themselves take taps; the rest of the row is the circle's
+		pointerEvents: 'none'
+	},
+	bottomGroup: {
+		display: 'flex',
 		alignItems: 'center',
 		gap: '8px',
-		paddingTop: '10px'
+		minWidth: 0,
+		pointerEvents: 'auto'
 	},
-	// The top row: bluffs at the left, the header (eg the look-back strip) in the middle, Fabled and Loric at the right.
-	// The side columns are the same width, so the header stays centred and can never run under a corner
+	menu: {
+		display: 'flex',
+		flexDirection: 'column',
+		alignItems: 'stretch',
+		gap: '2px',
+		minWidth: '140px',
+		maxHeight: '50vh',
+		overflowY: 'auto'
+	},
+	// The top row: bluffs at the left, Fabled and Loric at the right.
+	// The side columns are the same width, so neither corner can grow across the other
 	top: {
+		position: 'absolute',
+		zIndex: 5,
+		top: 0,
+		right: 0,
+		left: 0,
 		display: 'grid',
 		gridTemplateColumns: 'minmax(0, 196px) minmax(0, 1fr) minmax(0, 196px)',
 		alignItems: 'start',
 		gap: '8px',
-		padding: '10px 12px 6px 12px'
-	},
-	topHeader: {
-		display: 'flex',
-		justifyContent: 'center',
-		minWidth: 0
+		padding: '12px',
+		// As with the bottom row, the gaps belong to the circle underneath
+		pointerEvents: 'none'
 	},
 	corner: {
 		appearance: 'none',
+		pointerEvents: 'auto',
 		margin: '-6px',
 		padding: '6px',
 		borderWidth: 0,
@@ -229,6 +269,18 @@ const styles = stylex.create({
 		overflowWrap: 'break-word'
 	}
 });
+
+// An icon for each lens; 'characters' is the grimoire as it is, so it keeps the lens button's own icon
+const lensIcons: Record<GrimoireView, typeof Glasses> = {
+	characters: Glasses,
+	alignment: Users,
+	role: Shapes,
+	drunk: HeartPulse,
+	alive: Skull,
+	votes: Vote
+};
+
+const phaseIcon = (type: PhaseType) => (type === PhaseType.Night ? Moon : (type === PhaseType.Day ? Sun : ClipboardList));
 
 export const GrimoirePanel = (props: Props) => {
 	const monograms = useMemo(() => GrimoireViewLogic.getMonograms(props.game), [ props.game ]);
@@ -321,6 +373,25 @@ export const GrimoirePanel = (props: Props) => {
 		};
 	});
 
+	// The lens menu, opened from the button at the bottom left
+	const [ lensOpen, setLensOpen ] = useState(false);
+	const closeLens = useCallback(() => setLensOpen(false), []);
+	const lensView = GrimoireViewLogic.views.find(v => v.id === view) ?? GrimoireViewLogic.views[ 0 ];
+	const lensOn = view !== 'characters';
+	// The look-back menu, opened from the button beside it
+	const [ lookBackOpen, setLookBackOpen ] = useState(false);
+	const closeLookBack = useCallback(() => setLookBackOpen(false), []);
+	const lookBackPhases = props.lookBackPhases ?? [];
+	const lookBack = lookBackPhases.find(p => p.key === props.lookBackKey) ?? null;
+	const canLookBack = !!props.onLookBackChange && (lookBackPhases.length > 0);
+	// Neither can be left open behind a hidden grimoire
+	useEffect(() => {
+		if (props.privacy) {
+			setLensOpen(false);
+			setLookBackOpen(false);
+		}
+	}, [ props.privacy ]);
+
 	const [ fingerInk, setFingerInk ] = useState(false);
 	const strokes = HistoryLogic.getInk(props.game, props.game.phase);
 	const inkable = (props.inkable ?? false) && !props.privacy;
@@ -381,10 +452,10 @@ export const GrimoirePanel = (props: Props) => {
 			<div aria-hidden='true' {...stylex.props(styles.sky, styles.night, (props.tint === 'night') && styles.skyShown)} />
 			<div aria-hidden='true' {...stylex.props(styles.sky, styles.day, (props.tint === 'day') && styles.skyShown)} />
 			{
-				(props.header || hasCorners) ?
+				hasCorners ?
 					<div {...stylex.props(styles.top)}>
 						{getCorner('bluffs', 'Bluffs', bluffs, false)}
-						<div {...stylex.props(styles.topHeader)} onClick={e => e.stopPropagation()}>{props.header}</div>
+						<div />
 						{getCorner('fabled', othersLabel, others, true)}
 					</div>
 					: null
@@ -428,34 +499,120 @@ export const GrimoirePanel = (props: Props) => {
 				</div>
 			</div>
 			{
-				(turnable || props.onViewChange) && !props.privacy ?
-					<div {...stylex.props(styles.lens)} onClick={e => e.stopPropagation()}>
-						{turnable ? <Button type='quiet' icon={RotateCcw} iconOnly={true} label='Turn the circle anticlockwise' disabled={props.game.players.length < 2} onClick={() => onTurn(topSeat + 1)} /> : null}
-						{
-							props.onViewChange ?
-								<Segmented
-									label='Show'
-									options={GrimoireViewLogic.views.map(v => ({ id: v.id, label: v.label }))}
-									selectedID={view}
-									onChange={id => props.onViewChange?.(id as GrimoireView)}
-								/>
-								: null
-						}
-						{turnable ? <Button type='quiet' icon={RotateCw} iconOnly={true} label='Turn the circle clockwise' disabled={props.game.players.length < 2} onClick={() => onTurn(topSeat - 1)} /> : null}
-						{
-							inkable ?
-								<>
-									<Button
-										type={fingerInk ? 'primary' : 'quiet'}
-										icon={PenLine}
-										iconOnly={true}
-										label={fingerInk ? 'Stop drawing with a finger' : 'Draw with a finger (Apple Pencil always draws)'}
-										onClick={() => setFingerInk(value => !value)}
-									/>
-									{strokes.length > 0 ? <Button type='quiet' icon={Eraser} iconOnly={true} label={'Clear this phase\'s ink'} onClick={() => props.onChange(HistoryLogic.clearInk(props.game))} /> : null}
-								</>
-								: null
-						}
+				(turnable || props.onViewChange || canLookBack || inkable) && !props.privacy ?
+					<div {...stylex.props(styles.bottom)} onClick={e => e.stopPropagation()}>
+						<div {...stylex.props(styles.bottomGroup)}>
+							{
+								props.onViewChange ?
+									<Popover
+										open={lensOpen}
+										label='Lens'
+										anchor={
+											<Button
+												type={lensOn ? 'primary' : 'quiet'}
+												icon={lensIcons[ view ]}
+												label={lensOn ? lensView.label : ''}
+												description={lensOn ? `The ${lensView.label} lens; tap for Info` : 'Choose a lens'}
+												onClick={() => {
+													// A tap while a lens is on puts the seats back to Info, rather than opening the menu again
+													if (lensOn) {
+														setLensOpen(false);
+														props.onViewChange?.('characters');
+													} else {
+														setLensOpen(value => !value);
+													}
+												}}
+											/>
+										}
+										onClose={closeLens}
+									>
+										<div {...stylex.props(styles.menu)}>
+											{
+												GrimoireViewLogic.views
+													.filter(v => v.id !== 'characters')
+													.map(v => (
+														<Button
+															key={v.id}
+															type='quiet'
+															icon={lensIcons[ v.id ]}
+															label={v.label}
+															block={true}
+															alignStart={true}
+															onClick={() => {
+																setLensOpen(false);
+																props.onViewChange?.(v.id);
+															}}
+														/>
+													))
+											}
+										</div>
+									</Popover>
+									: null
+							}
+							{
+								canLookBack ?
+									<Popover
+										open={lookBackOpen}
+										label='Look back'
+										anchor={
+											<Button
+												type={lookBack ? 'primary' : 'quiet'}
+												icon={lookBack ? phaseIcon(lookBack.type) : History}
+												label={lookBack ? lookBack.label : ''}
+												description={lookBack ? `Looking back at ${lookBack.label}; tap for now` : 'Look back at a past phase'}
+												onClick={() => {
+													// As with the lens, a tap while looking back comes back to now
+													if (lookBack) {
+														setLookBackOpen(false);
+														props.onLookBackChange?.(null);
+													} else {
+														setLookBackOpen(value => !value);
+													}
+												}}
+											/>
+										}
+										onClose={closeLookBack}
+									>
+										<div {...stylex.props(styles.menu)}>
+											{
+												lookBackPhases.map(phase => (
+													<Button
+														key={phase.key}
+														type='quiet'
+														icon={phaseIcon(phase.type)}
+														label={phase.label}
+														block={true}
+														alignStart={true}
+														onClick={() => {
+															setLookBackOpen(false);
+															props.onLookBackChange?.(phase.key);
+														}}
+													/>
+												))
+											}
+										</div>
+									</Popover>
+									: null
+							}
+						</div>
+						<div {...stylex.props(styles.bottomGroup)}>
+							{turnable ? <Button type='quiet' icon={RotateCcw} iconOnly={true} label='Turn the circle anticlockwise' disabled={props.game.players.length < 2} onClick={() => onTurn(topSeat + 1)} /> : null}
+							{turnable ? <Button type='quiet' icon={RotateCw} iconOnly={true} label='Turn the circle clockwise' disabled={props.game.players.length < 2} onClick={() => onTurn(topSeat - 1)} /> : null}
+							{
+								inkable ?
+									<>
+										<Button
+											type={fingerInk ? 'primary' : 'quiet'}
+											icon={PenLine}
+											iconOnly={true}
+											label={fingerInk ? 'Stop drawing with a finger' : 'Draw with a finger (Apple Pencil always draws)'}
+											onClick={() => setFingerInk(value => !value)}
+										/>
+										{strokes.length > 0 ? <Button type='quiet' icon={Eraser} iconOnly={true} label={'Clear this phase\'s ink'} onClick={() => props.onChange(HistoryLogic.clearInk(props.game))} /> : null}
+									</>
+									: null
+							}
+						</div>
 					</div>
 					: null
 			}

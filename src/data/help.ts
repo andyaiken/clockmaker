@@ -124,7 +124,7 @@ export const HelpContent: HelpSection[] = [
 			{
 				id: 'lenses',
 				title: 'Lenses',
-				summary: 'The row under the circle changes what the seats say. Lenses show only what\'s unusual, so it stands out.',
+				summary: 'The Lens button at the bottom left changes what the seats say. Lenses show only what\'s unusual, so it stands out.',
 				steps: [
 					'Info: characters and reminders.',
 					'Team: evil players, and anyone who might register as the other team.',
@@ -133,6 +133,7 @@ export const HelpContent: HelpSection[] = [
 					'Alive: only the dead.',
 					'Votes: only ghost votes, spent votes and modified votes.'
 				],
+				tips: [ 'Tap Lens for the list, then choose one; the button then shows that lens. Tap it again to go back to Info.' ],
 				screenshot: 'lens-health'
 			},
 			{
@@ -165,7 +166,7 @@ export const HelpContent: HelpSection[] = [
 				summary: 'Turn the circle so the player you\'re facing is at the top. Seat numbers and order don\'t change, only where seats are drawn.',
 				steps: [
 					'Drag round the ring with one finger, or twist with two; it snaps to a seat.',
-					'Or use the ↺ and ↻ buttons beside the lenses, or the [ and ] keys.',
+					'Or use the ↺ and ↻ buttons at the bottom right, or the [ and ] keys.',
 					'Or choose "Put at top" for a player.'
 				],
 				tips: [ 'The rotation is saved with the game.' ]
@@ -176,7 +177,7 @@ export const HelpContent: HelpSection[] = [
 				summary: 'Write on the circle with Apple Pencil: ring two players claiming the same role, or note who\'s gone quiet. Ink never changes the game.',
 				steps: [
 					'Apple Pencil always draws.',
-					'To draw with a finger, turn on the pen button beside the lenses.',
+					'To draw with a finger, turn on the pen button at the bottom right.',
 					'The eraser clears this phase\'s ink.'
 				],
 				tips: [ 'Each phase starts with a clean circle; earlier ink shows when you look back. Ink turns with its seats.' ],
@@ -196,8 +197,8 @@ export const HelpContent: HelpSection[] = [
 			{
 				id: 'look-back',
 				title: 'Looking back',
-				summary: 'Tap Look back in the top bar to bring out a strip above the circle that steps back through the game. Pick a phase to see the circle as it stood when it ended, with what happened, including what each wake was shown.',
-				tips: [ 'Looking back is read-only. Tap Now to come back but keep the strip out, or tap Look back again, the ✕, or press Esc to put it away.' ],
+				summary: 'Tap Look back, beside the lens, for a list of the phases so far. Pick one to see the circle as it stood when that phase ended, with what happened, including what each wake was shown.',
+				tips: [ 'Looking back is read-only. The button then shows the phase you\'re at; tap it again, or the ✕, or press Esc, to come back to now.' ],
 				screenshot: 'look-back'
 			}
 		]

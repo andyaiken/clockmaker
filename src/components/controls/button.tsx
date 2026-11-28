@@ -9,6 +9,8 @@ interface Props {
 	icon?: LucideIcon;
 	// Shows only the icon; the label is still read out by VoiceOver
 	iconOnly?: boolean;
+	// Read out in place of the label, for a button whose label alone doesn't say what tapping it does
+	description?: string;
 	// Lines the icon and label up on the left, eg for items in a menu
 	alignStart?: boolean;
 	disabled?: boolean;
@@ -123,8 +125,8 @@ export const Button = (props: Props) => {
 			type='button'
 			disabled={props.disabled}
 			{...stylex.props(styles.button, styles[ props.type || 'default' ], props.iconOnly && styles.iconOnly, props.block && styles.block, props.alignStart && styles.alignStart, props.disabled && styles.disabled)}
-			aria-label={props.iconOnly ? props.label : undefined}
-			title={props.iconOnly ? props.label : undefined}
+			aria-label={props.description ?? (props.iconOnly ? props.label : undefined)}
+			title={props.description ?? (props.iconOnly ? props.label : undefined)}
 			onClick={props.onClick}
 		>
 			{Icon ? <Icon size={20} strokeWidth={2} aria-hidden='true' {...stylex.props(styles.icon)} /> : null}

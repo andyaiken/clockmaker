@@ -220,10 +220,14 @@ const main = async () => {
 			await help.click('Mark dead');
 		});
 		await shot('grimoire');
-		await run(() => help.radio('Health'));
+		await run(async () => {
+			await help.click('Choose a lens');
+			await help.click('Health');
+		});
 		await shot('lens-health');
 		await run(async () => {
-			await help.radio('Info');
+			// The lens button shows the lens it's on; tapping it again goes back to Info
+			await help.click('Health');
 			await help.tapSeat('Ada');
 		});
 		await shot('inspector');
@@ -266,12 +270,13 @@ const main = async () => {
 		await shot('day-vote');
 		await run(async () => {
 			await help.click('Close the vote');
-			await help.click('Look back');
-			await help.radio('Night 1');
+			await help.click('Look back at a past phase');
+			await help.click('Night 1');
 		});
 		await shot('look-back');
 		await run(async () => {
-			await help.click('Look back');
+			// The button shows the phase it's looking back at; tapping it again comes back to now
+			await help.click('Night 1');
 			await help.tapSeat('Dev');
 			[ ...document.querySelectorAll('button') ].find(b => b.textContent.trim().startsWith('Show to player')).click();
 			await help.wait(150);
