@@ -83,10 +83,10 @@ export const HelpContent: HelpSection[] = [
 				title: 'The bag',
 				summary: 'Tap a character on the left to put it in the bag; tap one on the right to take it out. Roles that are full dim their remaining characters.',
 				steps: [
-					'Switch to "Add to bluffs" to choose the Demon\'s three bluffs (good characters only).',
+					'Switch to "Add to bluffs" to choose the Demon\'s three bluffs (good characters only). Teensyville games (5 or 6 players) have no bluffs.',
 					'"Fill the rest randomly" completes the bag and the bluffs.',
 					'Characters that change the bag, like the Baron, change the rows of dots and say why.',
-					'Add Fabled and Loric at the bottom right.',
+					'Open Fabled and Loric at the bottom right to add any to the game.',
 					'Start is ready once the bag is full.'
 				],
 				screenshot: 'setup-bag'

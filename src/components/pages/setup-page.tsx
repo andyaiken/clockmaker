@@ -10,6 +10,8 @@ import { CharacterRow } from '../panels/character-row';
 import { Chips } from '../controls/chips';
 import { ColourLogic } from '../../logic/colour-logic';
 import { ConfirmButton } from '../controls/confirm-button';
+import { Divider } from '../controls/divider';
+import { Expander } from '../controls/expander';
 import { GameLogic } from '../../logic/game-logic';
 import { JinxList } from '../panels/jinx-list';
 import { ListPicker } from '../controls/list-picker';
@@ -181,6 +183,9 @@ export const SetupPage = (props: Props) => {
 	const counts = GameLogic.getRoleCounts(players, bagIDs.map(CharacterLogic.getCharacter));
 	const scriptCharacters = useMemo(() => script ? ScriptLogic.getCharacters(script) : [], [ script ]);
 	const monograms = useMemo(() => CharacterLogic.getMonograms(scriptCharacters), [ scriptCharacters ]);
+	// Teensyville games have no bluffs, so there's nothing to add them to
+	const bluffCount = SetupLogic.getBluffCount(players);
+	const addTo = bluffCount > 0 ? pot : 'bag';
 
 	const onSelectPlayers = (value: number) => {
 		setPlayers(value);
@@ -202,18 +207,18 @@ export const SetupPage = (props: Props) => {
 	};
 
 	// A role has room while fewer of its characters are in the bag than it needs; bluffs are good characters, up to three
-	const hasRoom = (c: Character) => pot === 'bag'
+	const hasRoom = (c: Character) => addTo === 'bag'
 		? SetupLogic.getSelectedCharacters(scriptCharacters, bagIDs, c.role).length < counts.counts[ c.role ]
-		: SetupLogic.bluffRoles.includes(c.role) && (bluffIDs.length < 3);
+		: SetupLogic.bluffRoles.includes(c.role) && (bluffIDs.length < bluffCount);
 
 	const onAdd = (c: Character) => {
 		if (!hasRoom(c)) {
 			return;
 		}
-		if (pot === 'bag') {
+		if (addTo === 'bag') {
 			setBagIDs(ids => SetupLogic.addToBag(ids, c.id));
 		} else {
-			setBluffIDs(ids => SetupLogic.addToBluffs(ids, c.id));
+			setBluffIDs(ids => SetupLogic.addToBluffs(players, ids, c.id));
 		}
 	};
 
@@ -255,10 +260,14 @@ export const SetupPage = (props: Props) => {
 					</div>
 				))
 			}
-			<div {...stylex.props(styles.fact)}>
-				<span {...stylex.props(styles.factLabel)}>Bluffs</span>
-				{getDots(bluffIDs.length, 3, null)}
-			</div>
+			{
+				bluffCount > 0 ?
+					<div {...stylex.props(styles.fact)}>
+						<span {...stylex.props(styles.factLabel)}>Bluffs</span>
+						{getDots(bluffIDs.length, bluffCount, null)}
+					</div>
+					: null
+			}
 		</div>
 	);
 
@@ -332,12 +341,16 @@ export const SetupPage = (props: Props) => {
 				<div {...stylex.props(styles.column)}>
 					<div {...stylex.props(styles.groupHeading)}>
 						<Text type='h3'>Characters</Text>
-						<Segmented
-							label='Add to'
-							options={[ { id: 'bag', label: 'Add to bag' }, { id: 'bluffs', label: 'Add to bluffs' } ]}
-							selectedID={pot}
-							onChange={id => setPot(id as 'bag' | 'bluffs')}
-						/>
+						{
+							bluffCount > 0 ?
+								<Segmented
+									label='Add to'
+									options={[ { id: 'bag', label: 'Add to bag' }, { id: 'bluffs', label: 'Add to bluffs' } ]}
+									selectedID={pot}
+									onChange={id => setPot(id as 'bag' | 'bluffs')}
+								/>
+								: null
+						}
 					</div>
 					{
 						bagRoles.map(r => {
@@ -364,7 +377,7 @@ export const SetupPage = (props: Props) => {
 						<Button
 							icon={Dices}
 							label='Fill the rest randomly'
-							disabled={(bagIDs.length >= players) && (bluffIDs.length >= 3)}
+							disabled={(bagIDs.length >= players) && (bluffIDs.length >= bluffCount)}
 							onClick={() => {
 								const filled = SetupLogic.fillBag(players, scriptCharacters, bagIDs, bluffIDs);
 								setBagIDs(filled.bagIDs);
@@ -398,21 +411,26 @@ export const SetupPage = (props: Props) => {
 							);
 						})
 					}
-					<section {...stylex.props(styles.group)}>
-						<div {...stylex.props(styles.groupHeading)}>
-							<span {...stylex.props(styles.groupTitle)}>Bluffs: {bluffIDs.length} of 3</span>
-							{getDots(bluffIDs.length, 3, null)}
-						</div>
-						{SetupLogic.getSelectedCharacters(scriptCharacters, bluffIDs).map(c => getRow(c, 'included', () => onRemove(c)))}
-					</section>
-					<section {...stylex.props(styles.group)}>
-						<div {...stylex.props(styles.groupHeading)}><span {...stylex.props(styles.groupTitle)}>Fabled and Loric: {otherIDs.length}</span></div>
+					{
+						bluffCount > 0 ?
+							<section {...stylex.props(styles.group)}>
+								<div {...stylex.props(styles.groupHeading)}>
+									<span {...stylex.props(styles.groupTitle)}>Bluffs: {bluffIDs.length} of {bluffCount}</span>
+									{getDots(bluffIDs.length, bluffCount, null)}
+								</div>
+								{SetupLogic.getSelectedCharacters(scriptCharacters, bluffIDs).map(c => getRow(c, 'included', () => onRemove(c)))}
+							</section>
+							: null
+					}
+					{/* Most games use no Fabled or Loric, so they're tucked away; a re-rack that carries some over starts open */}
+					<Divider />
+					<Expander label='Fabled and Loric' secondary={otherIDs.length > 0 ? `${otherIDs.length} chosen` : undefined} startOpen={otherIDs.length > 0}>
 						<Chips
 							options={CharacterLogic.getFabledAndLoric().map(c => ({ id: c.id, label: c.name }))}
 							selectedIDs={otherIDs}
 							onToggle={id => setOtherIDs(ids => Utility.toggle(ids, id))}
 						/>
-					</section>
+					</Expander>
 				</div>
 			</div>
 		);

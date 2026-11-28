@@ -14,7 +14,6 @@ import type { PlayerModifier } from '../models/modifier';
 import { RoleType } from '../enums/role-type';
 import type { Script } from '../models/script';
 import { ScriptLogic } from './script-logic';
-import { ScriptType } from '../enums/script-type';
 import { SeatingLogic } from './seating-logic';
 import type { SetupSelection } from '../models/setup-selection';
 import { Utility } from '../utils/utility';
@@ -40,12 +39,17 @@ export class SetupLogic {
 		return scripts.filter(s => SetupLogic.isScriptSuitable(s, players));
 	};
 
-	// The bag is full, and a Ravenswood Bluff script also needs its three bluffs
+	// Evil only learns each other in games of 7 or more, so smaller (Teensyville) games have no bluffs
+	static getBluffCount = (players: number) => {
+		return players >= 7 ? 3 : 0;
+	};
+
+	// The bag is full, with its bluffs if the game has any
 	static isBagReady = (script: Script | null, players: number, bagIDs: string[], bluffIDs: string[]) => {
 		if (!script) {
 			return false;
 		}
-		if ((script.type === ScriptType.RavenswoodBluff) && (bluffIDs.length !== 3)) {
+		if (bluffIDs.length !== SetupLogic.getBluffCount(players)) {
 			return false;
 		}
 		return bagIDs.length === players;
@@ -73,11 +77,11 @@ export class SetupLogic {
 		return bagIDs.includes(id) ? bagIDs : [ ...bagIDs, id ];
 	};
 
-	static addToBluffs = (bluffIDs: string[], id: string) => {
-		return (bluffIDs.length >= 3) || bluffIDs.includes(id) ? bluffIDs : [ ...bluffIDs, id ];
+	static addToBluffs = (players: number, bluffIDs: string[], id: string) => {
+		return (bluffIDs.length >= SetupLogic.getBluffCount(players)) || bluffIDs.includes(id) ? bluffIDs : [ ...bluffIDs, id ];
 	};
 
-	// Fills the bag's empty slots with random script characters, then the bluffs
+	// Fills the bag's empty slots with random script characters, then the bluffs (if the game has any)
 	// Characters are added one at a time, recounting after each, so bag modifiers (eg the Baron's extra Outsiders) are honoured
 	static fillBag = (players: number, scriptCharacters: Character[], bagIDs: string[], bluffIDs: string[]) => {
 		const bag = [ ...bagIDs ];
@@ -127,7 +131,7 @@ export class SetupLogic {
 		const bluffs = [
 			...bluffIDs,
 			...Utility.shuffle(scriptCharacters.filter(c => ((c.role === RoleType.Townsfolk) || (c.role === RoleType.Outsider)) && isAvailable(c)))
-				.slice(0, Math.max(0, 3 - bluffIDs.length))
+				.slice(0, Math.max(0, SetupLogic.getBluffCount(players) - bluffIDs.length))
 				.map(c => c.id)
 		];
 
